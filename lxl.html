@@ -3,12 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>React Three Fiber Christmas Tree - ayiii Edition</title>
+    <title>React Three Fiber Christmas Tree</title>
     <style>
         body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; }
-        #root { width: 100vw; height: 100vh; }
+        #root { width: 100vw; height: 100vh; position: relative; z-index: 1; }
         
-        /* UI 容器 */
+        /* --- 1. 新增：漂浮 Logo 的样式 --- */
+        #floating-logos {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4; /* 在树的上层，但在 UI 的下层 */
+            overflow: hidden;
+        }
+        .xm4s-logo {
+            position: absolute;
+            width: 150px; /* 控制大小 */
+            height: 150px;
+            filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4)); /* 金色光晕 */
+            animation: float 4s ease-in-out infinite;
+            opacity: 0.6; /* 半透明不抢戏 */
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(8deg); }
+        }
+
+        /* --- 2. 新增：右下角固定签名的样式 --- */
+        #signature-wrapper {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 160px;
+            height: auto;
+            z-index: 50; /* 确保不遮挡摄像头(100) */
+            pointer-events: none;
+            filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+        }
+        #signature-wrapper object { width: 100%; height: auto; display: block; }
+
+        /* --- 原有样式保持不变 --- */
         #ui-container {
             position: absolute;
             bottom: 40px;
@@ -17,7 +54,7 @@
             display: flex;
             justify-content: center;
             pointer-events: none;
-            z-index: 10;
+            z-index: 150; /* 提高层级 */
         }
         button {
             pointer-events: auto;
@@ -37,9 +74,39 @@
         button:hover {
             background: rgba(255, 255, 255, 0.25);
             transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
         }
-
-        /* 摄像头预览 */
+        button:active {
+            transform: translateY(1px);
+        }
+        #photo-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #photo-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #photo-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border: 10px solid white;
+            border-bottom: 30px solid white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transform: scale(0.8);
+            transition: transform 0.3s;
+        }
+        #photo-modal.active img {
+            transform: scale(1);
+        }
         #webcam-container {
             position: absolute;
             top: 20px;
@@ -48,19 +115,24 @@
             height: 180px;
             border-radius: 12px;
             overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             background: rgba(0, 0, 0, 0.5);
-            z-index: 100;
+            z-index: 100; /* 摄像头在签名上方 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        #webcam-video, #webcam-canvas {
+        #webcam-video {
             position: absolute;
             width: 100%;
             height: 100%;
             object-fit: cover;
             transform: scaleX(-1);
         }
-
-        /* 标题 */
+        #webcam-canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1); 
+        }
         #title {
             position: absolute;
             top: 20px;
@@ -70,12 +142,10 @@
             color: #FFD700;
             font-family: 'Brush Script MT', cursive;
             font-size: 4rem;
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 0, 0, 0.3);
             pointer-events: none;
             z-index: 5;
         }
-
-        /* 手势说明 */
         #gesture-info {
             position: absolute;
             top: 210px;
@@ -83,53 +153,19 @@
             color: rgba(255, 255, 255, 0.8);
             font-size: 14px;
             text-align: right;
+            pointer-events: none;
             z-index: 5;
             background: rgba(0,0,0,0.3);
             padding: 10px;
             border-radius: 8px;
+            backdrop-filter: blur(5px);
         }
-
-        /* 照片弹窗 */
-        #photo-modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 200;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        #photo-modal.active { opacity: 1; pointer-events: auto; }
-        #photo-modal img {
-            max-width: 90%;
-            max-height: 90%;
-            border: 10px solid white;
-            border-bottom: 40px solid white;
-        }
-
-        /* 稳妥的动态签名容器 */
-        #signature-wrapper {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 150px;
-            height: auto;
-            z-index: 110;
-            pointer-events: none; /* 穿透点击 */
-            filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.4));
-        }
-        #signature-wrapper object {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
+        #gesture-info p { margin: 4px 0; }
     </style>
-
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
@@ -140,78 +176,120 @@
                 "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
                 "three": "https://esm.sh/three@0.160.0",
                 "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.12?external=react,react-dom,three",
-                "@react-three/drei": "https://esm.sh/@react-three/drei@9.96.1?external=react,react-dom,three,@react-three/fiber"
+                "@react-three/drei": "https://esm.sh/@react-three/drei@9.96.1?external=react,react-dom,three,@react-three/fiber",
+                "uuid": "https://esm.sh/uuid@9.0.1"
             }
         }
     </script>
 </head>
 <body>
+    <div id="floating-logos"></div>
+
     <div id="root"></div>
-
-    <div id="webcam-container">
-        <video id="webcam-video" playsinline></video>
-        <canvas id="webcam-canvas" width="320" height="240"></canvas>
-    </div>
-    <div id="gesture-info">
-        <p>🖐 张开手掌: 爆炸效果</p>
-        <p>✊ 握拳: 组装圣诞树</p>
-    </div>
-
-    <div id="title">Merry Christmas</div>
 
     <div id="signature-wrapper">
         <object type="image/svg+xml" data="https://raw.githubusercontent.com/ayiii007/XM4S/master/XM4S.svg"></object>
     </div>
 
+    <script>
+        const logoCount = 15;
+        const logoContainer = document.getElementById('floating-logos');
+        const svgUrl = 'https://raw.githubusercontent.com/ayiii007/XM4S/master/XM4S.svg';
+
+        for (let i = 0; i < logoCount; i++) {
+            const img = document.createElement('img');
+            img.src = svgUrl;
+            img.className = 'xm4s-logo';
+            // 随机位置和大小
+            img.style.left = Math.random() * 95 + '%'; // 0-95% 避免溢出
+            img.style.top = Math.random() * 85 + '%';  // 0-85%
+            // 随机动画延迟，让它们不要同步动
+            img.style.animationDelay = (Math.random() * 5) + 's';
+            // 随机缩放
+            img.style.transform = `scale(${0.3 + Math.random() * 0.7})`; 
+            logoContainer.appendChild(img);
+        }
+    </script>
+
     <script type="text/babel" data-type="module">
-        import React, { useState, useMemo, useRef, useEffect } from 'react';
+        import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
         import { createRoot } from 'react-dom/client';
         import * as THREE from 'three';
-        import { Canvas, useFrame } from '@react-three/fiber';
-        import { Environment, OrbitControls, useTexture } from '@react-three/drei';
+        import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+        import { Environment, OrbitControls, Float, Html, useTexture } from '@react-three/drei';
 
+        // --- Constants & Utils ---
+        const COUNT = 2500;
         const TREE_HEIGHT = 12;
         const MAX_RADIUS = 4;
-        const COUNT = 2500;
+        
+        const COLOR_LEAF = "#003318";
         const COLOR_GOLD = "#FFD700";
+        const COLOR_RED = "#8a0a0a";
+        const COLORS_LIGHTS = ["#00FFFF", "#FF00FF", "#FFA500", "#FFFFFF"];
+
+        // 使用你的 GitHub 图片链接
+        const LOCAL_PHOTOS = [
+            'https://raw.githubusercontent.com/ayiii007/XM4S/master/shark.jpg'
+        ];
 
         const tempObject = new THREE.Object3D();
         const tempColor = new THREE.Color();
         const tempPos = new THREE.Vector3();
 
-        // 数据生成
         function generateTreeData() {
-            const data = { leaves: [], ornaments: [], lights: [], photoSlots: [], ribbon: [] };
+            const data = {
+                leaves: [], ornaments: [], lights: [], photoSlots: [], ribbon: []
+            };
+
             for (let i = 0; i < COUNT; i++) {
                 const t = i / COUNT;
                 const angle = i * 2.39996;
                 const y = t * TREE_HEIGHT - (TREE_HEIGHT / 2);
                 const baseR = MAX_RADIUS * (1 - t);
                 const layerWave = Math.sin(t * 25.0) * 0.8 * (1 - t);
+                
                 const typeRand = Math.random();
                 let type = 'A';
                 if (typeRand > 0.9) type = 'C';
-                else if (typeRand > 0.7) type = Math.random() < 0.15 ? 'P' : 'B';
+                else if (typeRand > 0.7) {
+                    if (Math.random() < 0.15) type = 'P';
+                    else type = 'B';
+                }
+                
+                let radiusOffset = 0;
+                if (type === 'A') radiusOffset = Math.random() * 0.2;
+                else if (type === 'B') radiusOffset = 0.4 + Math.random() * 0.2;
+                else if (type === 'C') radiusOffset = 0.25 + Math.random() * 0.2;
+                else if (type === 'P') {
+                    radiusOffset = 0.65 + Math.random() * 0.1;
+                    if (t > 0.6 && Math.random() > 0.3) { type = 'B'; radiusOffset = 0.4 + Math.random() * 0.2; }
+                }
 
-                let radiusOffset = (type === 'P') ? 0.65 + Math.random() * 0.1 : (type === 'B' ? 0.4 : (type === 'C' ? 0.25 : Math.random() * 0.2));
                 const r = Math.max(0, baseR + layerWave + radiusOffset);
-                const item = {
-                    treePos: new THREE.Vector3(r * Math.cos(angle), y, r * Math.sin(angle)),
+                const x = r * Math.cos(angle);
+                const z = r * Math.sin(angle);
+
+                const item = { 
+                    treePos: new THREE.Vector3(x, y, z),
                     randomPos: new THREE.Vector3((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*30),
-                    id: i,
-                    color: type === 'B' ? (Math.random() > 0.5 ? "#FFD700" : "#8a0a0a") : (type === 'C' ? ["#00FFFF", "#FF00FF", "#FFA500", "#FFFFFF"][Math.floor(Math.random()*4)] : null)
+                    id: i 
                 };
+
                 if (type === 'A') data.leaves.push(item);
-                else if (type === 'B') data.ornaments.push(item);
-                else if (type === 'C') data.lights.push(item);
-                else data.photoSlots.push(item);
+                else if (type === 'B') { item.color = Math.random() > 0.5 ? COLOR_GOLD : COLOR_RED; data.ornaments.push(item); }
+                else if (type === 'C') { item.color = COLORS_LIGHTS[Math.floor(Math.random()*COLORS_LIGHTS.length)]; data.lights.push(item); }
+                else if (type === 'P') data.photoSlots.push(item);
             }
-            // 黄金飘带
-            for (let i = 0; i < 600; i++) {
-                const t = i / 600;
+
+            const RIBBON_COUNT = 600;
+            for (let i = 0; i < RIBBON_COUNT; i++) {
+                const t = i / RIBBON_COUNT;
+                const y = (1 - t) * TREE_HEIGHT - (TREE_HEIGHT / 2);
+                const baseR = (MAX_RADIUS * t) + 0.8;
                 const angle = t * Math.PI * 2 * 6;
                 data.ribbon.push({
-                    treePos: new THREE.Vector3((MAX_RADIUS * t + 0.8) * Math.cos(angle), (1 - t) * TREE_HEIGHT - (TREE_HEIGHT / 2), (MAX_RADIUS * t + 0.8) * Math.sin(angle)),
+                    treePos: new THREE.Vector3(baseR * Math.cos(angle), y, baseR * Math.sin(angle)),
                     randomPos: new THREE.Vector3((Math.random()-0.5)*40, (Math.random()-0.5)*40, (Math.random()-0.5)*40),
                     id: i
                 });
@@ -219,52 +297,151 @@
             return data;
         }
 
-        // 双面照片
+        // --- 双面照片组件 ---
         function Polaroid({ position, randomPos, textureUrl, exploded, onClick }) {
             const meshRef = useRef();
+            const [hovered, setHover] = useState(false);
             const texture = useTexture(textureUrl);
+            
             useFrame((state, delta) => {
                 if (!meshRef.current) return;
                 const targetLerp = exploded ? 1 : 0;
                 meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, targetLerp, delta * 2);
-                const currentPos = new THREE.Vector3().lerpVectors(position, randomPos, meshRef.current.userData.lerp);
+                const currentLerp = meshRef.current.userData.lerp;
+                const currentPos = new THREE.Vector3().lerpVectors(position, randomPos, currentLerp);
                 meshRef.current.position.copy(currentPos);
-                if (!exploded) { meshRef.current.lookAt(0, currentPos.y, 0); meshRef.current.rotation.y += Math.PI; }
-                else { meshRef.current.rotation.x += delta * 0.5; meshRef.current.rotation.y += delta * 0.5; }
+                
+                if (!exploded) {
+                    meshRef.current.lookAt(0, currentPos.y, 0);
+                    meshRef.current.rotation.y += Math.PI;
+                } else {
+                    meshRef.current.rotation.x += delta * 0.5;
+                    meshRef.current.rotation.y += delta * 0.5;
+                }
+                meshRef.current.scale.setScalar((hovered && !exploded) ? 1.5 : 1);
             });
+
             return (
-                <group ref={meshRef} onClick={() => onClick(textureUrl)}>
-                    <mesh><boxGeometry args={[0.6, 0.7, 0.04]} /><meshStandardMaterial color="white" /></mesh>
-                    <mesh position={[0, 0.05, 0.021]}><planeGeometry args={[0.5, 0.5]} /><meshBasicMaterial map={texture} /></mesh>
-                    <mesh position={[0, 0.05, -0.021]} rotation={[0, Math.PI, 0]}><planeGeometry args={[0.5, 0.5]} /><meshBasicMaterial map={texture} /></mesh>
+                <group ref={meshRef} 
+                    onClick={(e) => { e.stopPropagation(); onClick(textureUrl); }}
+                    onPointerOver={() => setHover(true)}
+                    onPointerOut={() => setHover(false)}
+                >
+                    {/* 中间白框夹层 */}
+                    <mesh position={[0, 0, 0]}>
+                        <boxGeometry args={[0.6, 0.7, 0.04]} />
+                        <meshStandardMaterial color="white" roughness={0.5} />
+                    </mesh>
+                    {/* 正面照片 */}
+                    <mesh position={[0, 0.05, 0.021]}>
+                        <planeGeometry args={[0.5, 0.5]} />
+                        <meshBasicMaterial map={texture} />
+                    </mesh>
+                    {/* 背面照片 (旋转 180 度) */}
+                    <mesh position={[0, 0.05, -0.021]} rotation={[0, Math.PI, 0]}>
+                        <planeGeometry args={[0.5, 0.5]} />
+                        <meshBasicMaterial map={texture} />
+                    </mesh>
                 </group>
             );
         }
 
-        // 实例化组件 (Leaves, Ornaments, Lights, Ribbon)
-        function InstancedComponent({ data, exploded, geometry, material, isLight, isRibbon }) {
+        function PhotoManager({ slots, photos, exploded, onPhotoClick }) {
+            return (
+                <group>
+                    {slots.map((slot, index) => (
+                        <Polaroid 
+                            key={slot.id}
+                            position={slot.treePos}
+                            randomPos={slot.randomPos}
+                            textureUrl={photos[index % photos.length]}
+                            exploded={exploded}
+                            onClick={onPhotoClick}
+                        />
+                    ))}
+                </group>
+            );
+        }
+
+        // --- 其他装饰物组件 (维持原样) ---
+        function Leaves({ data, exploded }) {
             const meshRef = useRef();
-            useEffect(() => {
-                if (data[0]?.color) {
-                    data.forEach((d, i) => { tempColor.set(d.color); meshRef.current.setColorAt(i, tempColor); });
-                    meshRef.current.instanceColor.needsUpdate = true;
-                }
-            }, [data]);
             useFrame((state, delta) => {
-                const lerpTarget = exploded ? 1 : 0;
-                meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, lerpTarget, delta * 2);
-                data.forEach((d, i) => {
-                    tempPos.lerpVectors(d.treePos, d.randomPos, meshRef.current.userData.lerp);
+                if (!meshRef.current) return;
+                const targetLerp = exploded ? 1 : 0;
+                meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, targetLerp, delta * 2);
+                const currentLerp = meshRef.current.userData.lerp;
+                for (let i = 0; i < data.length; i++) {
+                    const { treePos, randomPos } = data[i];
+                    tempPos.lerpVectors(treePos, randomPos, currentLerp);
                     tempObject.position.copy(tempPos);
-                    if (!isLight && !isRibbon) { tempObject.lookAt(0, tempPos.y, 0); tempObject.rotation.x += Math.PI/2; tempObject.scale.setScalar(1 - (d.treePos.y + 6)/12 * 0.5); }
-                    if (isLight) tempObject.scale.setScalar(0.8 + Math.sin(state.clock.elapsedTime * 5 + i) * 0.2);
-                    if (isRibbon) tempObject.rotation.set(state.clock.elapsedTime + i, state.clock.elapsedTime + i, 0);
+                    tempObject.lookAt(0, tempPos.y, 0);
+                    tempObject.rotation.x += Math.PI / 2;
+                    tempObject.scale.setScalar(1 - (treePos.y + 6) / 12 * 0.5);
                     tempObject.updateMatrix();
                     meshRef.current.setMatrixAt(i, tempObject.matrix);
-                });
+                }
                 meshRef.current.instanceMatrix.needsUpdate = true;
             });
-            return <instancedMesh ref={meshRef} args={[geometry, material, data.length]} />;
+            return <instancedMesh ref={meshRef} args={[null, null, data.length]}><coneGeometry args={[0.08, 0.25, 4]} /><meshStandardMaterial color={COLOR_LEAF} roughness={0.8} /></instancedMesh>;
+        }
+
+        function Ornaments({ data, exploded }) {
+            const meshRef = useRef();
+            useEffect(() => {
+                for (let i = 0; i < data.length; i++) { tempColor.set(data[i].color); meshRef.current.setColorAt(i, tempColor); }
+                meshRef.current.instanceColor.needsUpdate = true;
+            }, [data]);
+            useFrame((state, delta) => {
+                const targetLerp = exploded ? 1 : 0;
+                meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, targetLerp, delta * 2);
+                for (let i = 0; i < data.length; i++) {
+                    tempPos.lerpVectors(data[i].treePos, data[i].randomPos, meshRef.current.userData.lerp);
+                    tempObject.position.copy(tempPos);
+                    tempObject.updateMatrix();
+                    meshRef.current.setMatrixAt(i, tempObject.matrix);
+                }
+                meshRef.current.instanceMatrix.needsUpdate = true;
+            });
+            return <instancedMesh ref={meshRef} args={[null, null, data.length]}><sphereGeometry args={[0.12, 16, 16]} /><meshStandardMaterial roughness={0.2} metalness={0.8} /></instancedMesh>;
+        }
+
+        function Lights({ data, exploded }) {
+            const meshRef = useRef();
+            useEffect(() => {
+                for (let i = 0; i < data.length; i++) { tempColor.set(data[i].color); meshRef.current.setColorAt(i, tempColor); }
+                meshRef.current.instanceColor.needsUpdate = true;
+            }, [data]);
+            useFrame((state, delta) => {
+                const targetLerp = exploded ? 1 : 0;
+                meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, targetLerp, delta * 2);
+                for (let i = 0; i < data.length; i++) {
+                    tempPos.lerpVectors(data[i].treePos, data[i].randomPos, meshRef.current.userData.lerp);
+                    tempObject.position.copy(tempPos);
+                    tempObject.scale.setScalar(0.8 + Math.sin(state.clock.elapsedTime * 5 + i) * 0.2);
+                    tempObject.updateMatrix();
+                    meshRef.current.setMatrixAt(i, tempObject.matrix);
+                }
+                meshRef.current.instanceMatrix.needsUpdate = true;
+            });
+            return <instancedMesh ref={meshRef} args={[null, null, data.length]}><boxGeometry args={[0.1, 0.1, 0.1]} /><meshBasicMaterial toneMapped={false} /></instancedMesh>;
+        }
+
+        function GoldRibbon({ data, exploded }) {
+            const meshRef = useRef();
+            useFrame((state, delta) => {
+                const targetLerp = exploded ? 1 : 0;
+                meshRef.current.userData.lerp = THREE.MathUtils.lerp(meshRef.current.userData.lerp || 0, targetLerp, delta * 2);
+                for (let i = 0; i < data.length; i++) {
+                    tempPos.lerpVectors(data[i].treePos, data[i].randomPos, meshRef.current.userData.lerp);
+                    tempObject.position.copy(tempPos);
+                    tempObject.rotation.set(state.clock.elapsedTime + i, state.clock.elapsedTime + i, 0);
+                    tempObject.updateMatrix();
+                    meshRef.current.setMatrixAt(i, tempObject.matrix);
+                }
+                meshRef.current.instanceMatrix.needsUpdate = true;
+            });
+            return <instancedMesh ref={meshRef} args={[null, null, data.length]}><dodecahedronGeometry args={[0.06, 0]} /><meshStandardMaterial color={COLOR_GOLD} emissive={COLOR_GOLD} emissiveIntensity={3} toneMapped={false} /></instancedMesh>;
         }
 
         function Star({ exploded }) {
@@ -287,52 +464,59 @@
             return <mesh ref={ref} geometry={geom}><meshStandardMaterial color={COLOR_GOLD} emissive={COLOR_GOLD} emissiveIntensity={2} toneMapped={false} /></mesh>;
         }
 
+        function Scene({ exploded, photos, onPhotoClick }) {
+            const data = useMemo(() => generateTreeData(), []);
+            return (
+                <>
+                    <ambientLight intensity={0.5} /><pointLight position={[10, 10, 10]} intensity={1} />
+                    <group position={[0, -2, 0]}>
+                        <Leaves data={data.leaves} exploded={exploded} />
+                        <Ornaments data={data.ornaments} exploded={exploded} />
+                        <Lights data={data.lights} exploded={exploded} />
+                        <GoldRibbon data={data.ribbon} exploded={exploded} />
+                        <PhotoManager slots={data.photoSlots} photos={photos} exploded={exploded} onPhotoClick={onPhotoClick} />
+                        <Star exploded={exploded} />
+                    </group>
+                    <Environment preset="city" /><OrbitControls enablePan={false} maxPolarAngle={Math.PI / 1.5} />
+                </>
+            );
+        }
+
         function App() {
             const [exploded, setExploded] = useState(false);
+            const [photos] = useState(LOCAL_PHOTOS);
             const [selectedPhoto, setSelectedPhoto] = useState(null);
-            const treeData = useMemo(() => generateTreeData(), []);
-            const lastGesture = useRef('FIST');
+            const videoRef = useRef(); const canvasRef = useRef(); const lastGestureRef = useRef();
 
             useEffect(() => {
-                const videoElement = document.getElementById('webcam-video');
                 const hands = new Hands({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
                 hands.setOptions({maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
                 hands.onResults((res) => {
-                    const canvas = document.getElementById('webcam-canvas');
-                    const ctx = canvas.getContext('2d');
-                    ctx.save(); ctx.clearRect(0,0,320,240); ctx.drawImage(res.image, 0,0,320,240);
+                    const ctx = canvasRef.current.getContext('2d');
+                    ctx.save(); ctx.clearRect(0, 0, 320, 240); ctx.drawImage(res.image, 0, 0, 320, 240);
                     if (res.multiHandLandmarks?.[0]) {
                         const l = res.multiHandLandmarks[0];
                         drawConnectors(ctx, l, HAND_CONNECTIONS, {color: '#00FF00'});
-                        const openFingers = [8,12,16,20].filter(i => Math.hypot(l[i].x-l[0].x, l[i].y-l[0].y) > Math.hypot(l[i-2].x-l[0].x, l[i-2].y-l[0].y)).length;
-                        if (openFingers >= 4 && lastGesture.current !== 'OPEN') { setExploded(true); lastGesture.current = 'OPEN'; }
-                        else if (openFingers <= 1 && lastGesture.current !== 'FIST') { setExploded(false); lastGesture.current = 'FIST'; }
+                        drawLandmarks(ctx, l, {color: '#FF0000', lineWidth: 1});
+                        const open = [8,12,16,20].filter(i => Math.hypot(l[i].x-l[0].x, l[i].y-l[0].y) > Math.hypot(l[i-2].x-l[0].x, l[i-2].y-l[0].y)).length;
+                        if (open >= 4 && lastGestureRef.current !== 'OPEN') { setExploded(true); lastGestureRef.current = 'OPEN'; }
+                        else if (open <= 1 && lastGestureRef.current !== 'FIST') { setExploded(false); lastGestureRef.current = 'FIST'; }
                     }
                     ctx.restore();
                 });
-                const camera = new Camera(videoElement, {onFrame: async () => await hands.send({image: videoElement}), width: 320, height: 240});
-                camera.start();
+                new Camera(videoRef.current, {onFrame: async () => await hands.send({image: videoRef.current}), width: 320, height: 240}).start();
             }, []);
 
             return (
                 <>
                     <Canvas camera={{ position: [0, 2, 12], fov: 50 }}>
                         <color attach="background" args={['#111']} />
-                        <React.Suspense fallback={null}>
-                            <group position={[0, -2, 0]}>
-                                <InstancedComponent data={treeData.leaves} exploded={exploded} geometry={new THREE.ConeGeometry(0.08, 0.25, 4)} material={new THREE.MeshStandardMaterial({color: "#003318"})} />
-                                <InstancedComponent data={treeData.ornaments} exploded={exploded} geometry={new THREE.SphereGeometry(0.12, 16, 16)} material={new THREE.MeshStandardMaterial({roughness: 0.2, metalness: 0.8})} />
-                                <InstancedComponent data={treeData.lights} exploded={exploded} isLight geometry={new THREE.BoxGeometry(0.1, 0.1, 0.1)} material={new THREE.MeshBasicMaterial({toneMapped: false})} />
-                                <InstancedComponent data={treeData.ribbon} exploded={exploded} isRibbon geometry={new THREE.DodecahedronGeometry(0.06, 0)} material={new THREE.MeshStandardMaterial({color: COLOR_GOLD, emissive: COLOR_GOLD, emissiveIntensity: 3, toneMapped: false})} />
-                                {treeData.photoSlots.map((s, i) => <Polaroid key={i} position={s.treePos} randomPos={s.randomPos} textureUrl="https://raw.githubusercontent.com/ayiii007/XM4S/master/shark.jpg" exploded={exploded} onClick={setSelectedPhoto} />)}
-                                <Star exploded={exploded} />
-                            </group>
-                            <Environment preset="city" />
-                            <OrbitControls enablePan={false} maxPolarAngle={Math.PI / 1.5} />
-                        </React.Suspense>
+                        <React.Suspense fallback={null}><Scene exploded={exploded} photos={photos} onPhotoClick={setSelectedPhoto} /></React.Suspense>
                     </Canvas>
-                    
-                    <div id="ui-container"><button onClick={() => setExploded(!exploded)}>{exploded ? "组装树" : "引爆惊喜"}</button></div>
+                    <div id="webcam-container"><video ref={videoRef} id="webcam-video" playsInline></video><canvas ref={canvasRef} id="webcam-canvas" width="320" height="240"></canvas></div>
+                    <div id="gesture-info"><p>🖐 Open Hand: Explode</p><p>✊ Fist: Assemble</p></div>
+                    <div id="title">Merry Christmas</div>
+                    <div id="ui-container"><button onClick={() => setExploded(!exploded)}>{exploded ? "Assemble Tree" : "Explode Tree"}</button></div>
                     <div id="photo-modal" className={selectedPhoto ? 'active' : ''} onClick={() => setSelectedPhoto(null)}>{selectedPhoto && <img src={selectedPhoto} />}</div>
                 </>
             );
